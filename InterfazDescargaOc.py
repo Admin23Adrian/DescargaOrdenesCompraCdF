@@ -13,18 +13,20 @@ from time import sleep
 
 class Osde(QThread):
     signal = pyqtSignal()
+
     def __init__(self, clasePrincipal, modelo):
         super().__init__()
         self.modelo = modelo
         self.componentesHilo = clasePrincipal
         self.cont = 0
+        self.ind = 2
 
     def run(self):
         usuario = getuser()
         ruta = "C:/Users/" + usuario + "/Desktop/ordenes.xlsx"
         excel = load_workbook(ruta)
         hoja_trabajo = excel["Hoja1"]
-        cantidad_pedidos = 0
+        cantidad_pedidos = len(hoja_trabajo["A"])
         
         entregas = hoja_trabajo["A"]
         convenios = hoja_trabajo["B"]
@@ -34,35 +36,37 @@ class Osde(QThread):
         resultados = hoja_trabajo["H"]
         self.componentesHilo.componentes.num_sinDesc.setText(str(cantidad_pedidos))
 
-        for i in range(2, len(hoja_trabajo["A"]) + 1):
-            try:
-                pedido = pedidos[i].value
-                orden = ordenes[i].value
-                convenio = convenios[i].value
-                cliente = clientes[i].value
-                entrega = entregas[i].value
+        try:
+            while hoja_trabajo[f"A{self.ind}"].value != None:
+
+                pedido = hoja_trabajo[f"C{self.ind}"].value
+                orden = hoja_trabajo[f"D{self.ind}"].value
+                convenio = hoja_trabajo[f"B{self.ind}"].value
+                cliente =  hoja_trabajo[f"E{self.ind}"].value
+                entrega =  hoja_trabajo[f"A{self.ind}"].value
+
                 sleep(2)
                 descarga = proceso(pedido, orden, cliente, convenio, entrega, self.modelo)
                 sleep(2)
-                if descarga == True:
+                if descarga:
                     self.cont = self.cont + 1
                     self.componentesHilo.componentes.num_descargadas.setText(str(self.cont))
-                    resultados[i].value = "Descargada"
-                elif descarga == False:
-                    resultados[i].value = "Sin OC descargada"
-                # dato_user = consultaUser(pedido)
-                # if dato_user != False:
-                #     resultados[i].value = str(dato_user)
-            except:
-                break
-                excel.save("C:/Users/" + usuario + "/Desktop/ordenes.xlsx")
-                excel.close()
+                    hoja_trabajo[f"H{self.ind}"].value = "Descargada"
+                elif not descarga:
+                    hoja_trabajo[f"H{self.ind}"].value = "Sin OC descargada"
+                print(f"Valor de la fila {self.ind} -", hoja_trabajo[f"A{self.ind}"].value)
+                self.ind += 1
 
-        excel.save("C:/Users/" + usuario + "/Desktop/ordenes.xlsx")
-        excel.close()
+        except Exception as e:
+            print(f"Excepcion en Modulo InterfazDescargaOc - Entre lineas 39 y 55. Detalles:", e)
+
+        finally:
+            print("Guardando y cerrando Excel de Ordenes...")
+            excel.save("C:/Users/" + usuario + "/Desktop/ordenes.xlsx")
+            excel.close()
+
         self.componentesHilo.componentes.lbl_descargando.setText(f"{self.cont} Ordenes Descargadas.")
             
-
 
 class InterfazOc(QMainWindow):
     def __init__(self):
@@ -76,7 +80,7 @@ class InterfazOc(QMainWindow):
         self.show()
     
     def iniciar(self):
-        if self.componentes.check.isChecked() == False:
+        if not self.componentes.check.isChecked():
             print("Modelo OSDE.")
             self.osde = Osde(self, 1)
             self.osde.start()

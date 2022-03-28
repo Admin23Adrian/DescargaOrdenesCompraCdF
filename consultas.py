@@ -1,11 +1,11 @@
 import requests
 import json
 
-from sqlalchemy import true
 from login import loguearse
 import time
 from descarga_oc import descarga_documento
 import urllib3
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
@@ -17,8 +17,8 @@ def buscar_por_orden(orden_compra, header, url_base):
     observaciones = None
 
     params = (
-        ('filter', '[{"key":"orden_de_compra","value":"'+str(orden_compra)+'"}]'),
-        ('allfields', true),
+        ('filter', '[{"key":"orden_de_compra","value":"' + str(orden_compra) + '"}]'),
+        ('allfields', 'true'),
     )
 
     response = requests.get(url=url_base, headers=header, params=params, verify=False)
@@ -46,17 +46,14 @@ def buscar_por_orden(orden_compra, header, url_base):
                 else:
                     observaciones = "Sin OC"
         else:
-            return False # Contenido vacio. No encontro nada
+            return False  # Contenido vacio. No encontro nada
     else:
-        return "Estatus 400. Error en la peticion."              
+        return "Estatus 400. Error en la peticion."
 
     if observaciones != "Sin OC":
-        return id_descarga, cliente, convenio, orden_compra, observaciones # Devolvemos los datos cuando los encontramos
+        return id_descarga, cliente, convenio, orden_compra, observaciones  # Devolvemos los datos cuando los encontramos
     else:
         return observaciones
-    
-
-
 
 
 # Funcion que busca por Pedido Sap + Observaciones: OC
@@ -68,9 +65,9 @@ def buscar_ped_sap(pedido, headers, url_consulta):
     oc = None
 
     params = (
-        ('filter', '[{"key":"pedido_sap","value":"'+str(pedido)+'"}]'),
+        ('filter', '[{"key":"pedido_sap","value":"' + str(pedido) + '"}]'),
         ('allfields', 'true'),
-    ) 
+    )
 
     request = requests.get(url=url_consulta, headers=headers, params=params, verify=False)
     response = request.json()
@@ -82,7 +79,7 @@ def buscar_ped_sap(pedido, headers, url_consulta):
         print(f"Buscando datos para {pedido}...")
         datos_json = response["message"]["results"]
 
-        if datos_json != []:
+        if datos_json:
             # campos = datos_json[0]
             for campos in datos_json:
                 observaciones = campos["observaciones"]
@@ -93,12 +90,12 @@ def buscar_ped_sap(pedido, headers, url_consulta):
                     convenio = campos["convenio"]
                     break
                 else:
-                   observaciones = "Sin OC"
+                    observaciones = "Sin OC"
         else:
-            return False  
+            return False
     else:
         return "Status 400. Error en la solicitud."
-    
+
     if observaciones != "Sin OC":
         return id_descarga, cliente, convenio, pedido, observaciones
     else:
@@ -114,7 +111,7 @@ def buscar_usuario_orden(orden, header, url_consulta):
     sramos = "sramos@scienza.com.ar"
     resultado_it = None
     param_por_usuario = (
-        ('filter', '[{"key":"orden_de_compra","value":"'+str(orden)+'"}]'),
+        ('filter', '[{"key":"orden_de_compra","value":"' + str(orden) + '"}]'),
         ('allfields', 'true')
     )
 
@@ -146,7 +143,6 @@ def buscar_usuario_orden(orden, header, url_consulta):
         return request.text
 
 
-
 # Funcion que busca por pedido + usuario sramos@scienza.com.ar
 def buscar_usuario_pedido(pedido, header, url_consulta):
     id_descarga = None
@@ -154,9 +150,9 @@ def buscar_usuario_pedido(pedido, header, url_consulta):
     convenio = None
     usuario = None
     sramos = "sramos@scienza.com.ar"
-    
+
     param_por_usuario = (
-        ('filter', '[{"key":"pedido_sap","value":"'+str(pedido)+'"}]'),
+        ('filter', '[{"key":"pedido_sap","value":"' + str(pedido) + '"}]'),
         ('allfields', 'true'),
     )
 
@@ -173,7 +169,7 @@ def buscar_usuario_pedido(pedido, header, url_consulta):
             for campos in datos_json:
                 usuario = campos["usuario"]
                 pedido_json = campos["pedido_sap"]
-                
+
                 # Buscar coincidencia de pedido + usuario.
                 if usuario == sramos:
                     id_descarga = campos["id"]
@@ -193,10 +189,9 @@ def buscar_usuario_pedido(pedido, header, url_consulta):
         return request.text
 
 
-
 def proceso(pedido_sap, orden, cliente, convenio, nro_entrega, modelo):
     token = loguearse("aalarcon@scienza.com.ar", "Adrian2020")
-    header = {'Authorization':token, 'accept': 'application/json'}
+    header = {'Authorization': token, 'accept': 'application/json'}
     url_base = "https://api.nosconecta.com.ar:443/search/398"
     resultado_descarga = None
 
@@ -205,15 +200,15 @@ def proceso(pedido_sap, orden, cliente, convenio, nro_entrega, modelo):
     # Se comienza buscando por pedido scienza
     resultado_pedido = buscar_ped_sap(pedido_sap, header, url_base)
     print(resultado_pedido)
-    print("")
+    #print("")
 
     if resultado_pedido == "Sin OC" or resultado_pedido == False:
         print("Buscando por pedido + sramos@scienza.com.ar")
-        
+
         resultado_usuario_pedido = buscar_usuario_pedido(pedido_sap, header, url_base)
         print(resultado_usuario_pedido)
 
-        if resultado_usuario_pedido != False:
+        if resultado_usuario_pedido:
             print(resultado_usuario_pedido, "Listo para descargar")
             id_descarga = str(resultado_usuario_pedido[0])
             cliente = str(cliente)
@@ -227,13 +222,12 @@ def proceso(pedido_sap, orden, cliente, convenio, nro_entrega, modelo):
             print("Buscando por orden...")
             resultado_orden = buscar_por_orden(orden, header, url_base)
             print(resultado_orden)
-            print("")
 
             if resultado_orden == "Sin OC" or resultado_orden == False:
                 print("Buscando coincidencias orden + sramos@scienza.com.ar")
                 resultado_usuario_orden = buscar_usuario_orden(orden, header, url_base)
-                
-                if resultado_usuario_orden != False:
+
+                if resultado_usuario_orden:
                     print(resultado_usuario_orden, "Listo para descargar")
                     id_descarga = str(resultado_usuario_orden[0])
                     cliente = str(cliente)
@@ -268,4 +262,3 @@ def proceso(pedido_sap, orden, cliente, convenio, nro_entrega, modelo):
         return True
     else:
         return False
-        
